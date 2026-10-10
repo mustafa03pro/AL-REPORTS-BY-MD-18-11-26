@@ -2,7 +2,7 @@
   "id": "f1e42afe-2dbf-40c6-810d-1f10e61734af",
   "name": "Reports By Mustafa",
   "publisher": "Metworld-Mustafa",
-  "version": "1.0.0.0",
+  "version": "1.0.0.6",
   "brief": "",
   "description": "",
   "privacyStatement": "",
@@ -10,14 +10,22 @@
   "help": "",
   "url": "",
   "logo": "",
-  "dependencies": [],
+  "dependencies": [
+    {
+      "id": "0d0b6cab-2733-43a8-9a4a-d824e6be0671",
+      "name": "MetWorldGroup",
+      "publisher": "Techieroots",
+      "version": "2.0.0.1"
+    }
+  ],
+  
   "screenshots": [],
   "platform": "1.0.0.0",
   "application": "28.0.0.0",
   "idRanges": [
     {
       "from": 50100,
-      "to": 50299
+      "to": 50800
     }
   ],
   "resourceExposurePolicy": {
