@@ -1,7 +1,158 @@
+// codeunit 50253 "Indent to Purchase Order"
+// {
+//     // Caption = 'Indent to Purchase Order';
+
+//     procedure CreatePurchaseOrder(
+//         IndentNo: Code[20];
+//         var IndentLine: Record "Purchase Indent Line")
+//     var
+//         VendorRec: Record Vendor;
+//         IndentHeader: Record "Purchase Indent Header";
+//         PurchHeader: Record "Purchase Header";
+//         PurchLine: Record "Purchase Line";
+//         SelectedLine: Record "Purchase Indent Line";
+//         NextLineNo: Integer;
+//         QtyToOrder: Decimal;
+//     begin
+//         if IndentNo = '' then
+//             Error('The Purchase Indent must have a number before creating a Purchase Order.');
+
+//         if not IndentHeader.Get(IndentNo) then
+//             Error('Purchase Indent %1 was not found.', IndentNo);
+
+//         if IndentHeader.Status = IndentHeader.Status::Closed then
+//             Error('A closed indent cannot be converted.');
+
+//         if IndentLine.IsEmpty() then
+//             Error('Select at least one indent line.');
+
+//         if not (Page.RunModal(Page::"Vendor List", VendorRec) = Action::LookupOK) then
+//             exit;
+
+//         if VendorRec."No." = '' then
+//             Error('Select a vendor.');
+
+//         // Create the standard Business Central Purchase Order.
+//         PurchHeader.Init();
+//         PurchHeader."Document Type" := PurchHeader."Document Type"::Order;
+//         PurchHeader.Insert(true);
+//         PurchHeader.Validate("Buy-from Vendor No.", VendorRec."No.");
+//         PurchHeader.Modify(true);
+
+//         // Preserve the selected-line filter.
+//         SelectedLine.CopyFilters(IndentLine);
+
+//         if not SelectedLine.FindSet(true) then
+//             Error('No indent lines were selected.');
+
+//         repeat
+//             QtyToOrder := SelectedLine."Qty. to Order";
+
+//             if SelectedLine."Indent No." <> IndentNo then
+//                 Error('A selected line belongs to another indent.');
+
+//             if SelectedLine."No." = '' then
+//                 Error('Enter an item number on indent line %1.',
+//                     SelectedLine."Line No.");
+
+//             if QtyToOrder <= 0 then
+//                 Error('Enter a positive Qty. to Order on line %1.',
+//                     SelectedLine."Line No.");
+
+//             if QtyToOrder >
+//                SelectedLine."Quantity Requested" -
+//                SelectedLine."Quantity Ordered"
+//             then
+//                 Error(
+//                     'Qty. to Order exceeds the remaining quantity on line %1.',
+//                     SelectedLine."Line No.");
+
+//             NextLineNo += 10000;
+
+//             PurchLine.Init();
+//             PurchLine."Document Type" := PurchHeader."Document Type";
+//             PurchLine."Document No." := PurchHeader."No.";
+//             PurchLine."Line No." := NextLineNo;
+//             PurchLine.Insert(true);
+
+//             PurchLine.Validate(Type, PurchLine.Type::Item);
+//             PurchLine.Validate("No.", SelectedLine."No.");
+
+//             if SelectedLine."Location Code" <> '' then
+//                 PurchLine.Validate(
+//                     "Location Code", SelectedLine."Location Code");
+
+//             if SelectedLine."Unit of Measure Code" <> '' then
+//                 PurchLine.Validate(
+//                     "Unit of Measure Code",
+//                     SelectedLine."Unit of Measure Code");
+
+//             PurchLine.Validate(Quantity, QtyToOrder);
+
+//             if SelectedLine."Required Date" <> 0D then
+//                 PurchLine.Validate(
+//                     "Expected Receipt Date",
+//                     SelectedLine."Required Date");
+
+//             PurchLine.Modify(true);
+
+//             // Update only the selected indent line.
+//             SelectedLine.Validate(
+//                 "Quantity Ordered",
+//                 SelectedLine."Quantity Ordered" + QtyToOrder);
+
+//             SelectedLine.Validate("Qty. to Order", 0);
+//             SelectedLine."Purchase Order No." := PurchHeader."No.";
+//             SelectedLine.Modify(true);
+
+//         until SelectedLine.Next() = 0;
+
+//         UpdateIndentStatus(IndentHeader);
+
+//         Message(
+//             'Purchase Order %1 was created successfully for vendor %2.',
+//             PurchHeader."No.",
+//             VendorRec."No.");
+
+//         Page.Run(Page::"Purchase Order", PurchHeader);
+//     end;
+
+//     local procedure UpdateIndentStatus(
+//         var IndentHeader: Record "Purchase Indent Header")
+//     var
+//         IndentLine: Record "Purchase Indent Line";
+//         HasOrdered: Boolean;
+//         HasRemaining: Boolean;
+//     begin
+//         IndentLine.SetRange("Indent No.", IndentHeader."No.");
+
+//         if IndentLine.FindSet() then
+//             repeat
+//                 if IndentLine."Quantity Ordered" > 0 then
+//                     HasOrdered := true;
+
+//                 if IndentLine."Quantity Ordered" <
+//                    IndentLine."Quantity Requested"
+//                 then
+//                     HasRemaining := true;
+//             until IndentLine.Next() = 0;
+
+//         if not HasRemaining then
+//             IndentHeader.Status := IndentHeader.Status::"Fully Ordered"
+//         else
+//             if HasOrdered then
+//                 IndentHeader.Status :=
+//                     IndentHeader.Status::"Partially Ordered"
+//             else
+//                 IndentHeader.Status := IndentHeader.Status::Open;
+
+//         IndentHeader.Modify(true);
+//     end;
+// }
+
+
 codeunit 50253 "Indent to Purchase Order"
 {
-    // Caption = 'Indent to Purchase Order';
-
     procedure CreatePurchaseOrder(
         IndentNo: Code[20];
         var IndentLine: Record "Purchase Indent Line")
@@ -11,11 +162,12 @@ codeunit 50253 "Indent to Purchase Order"
         PurchHeader: Record "Purchase Header";
         PurchLine: Record "Purchase Line";
         SelectedLine: Record "Purchase Indent Line";
+        IndentHistory: Record "Purchase Indent History";
         NextLineNo: Integer;
         QtyToOrder: Decimal;
     begin
         if IndentNo = '' then
-            Error('The Purchase Indent must have a number before creating a Purchase Order.');
+            Error('The Purchase Indent must have a number.');
 
         if not IndentHeader.Get(IndentNo) then
             Error('Purchase Indent %1 was not found.', IndentNo);
@@ -26,37 +178,34 @@ codeunit 50253 "Indent to Purchase Order"
         if IndentLine.IsEmpty() then
             Error('Select at least one indent line.');
 
-        if not (Page.RunModal(Page::"Vendor List", VendorRec) = Action::LookupOK) then
+        if Page.RunModal(Page::"Vendor List", VendorRec) <>
+           Action::LookupOK
+        then
             exit;
 
         if VendorRec."No." = '' then
             Error('Select a vendor.');
 
-        // Create the standard Business Central Purchase Order.
-        PurchHeader.Init();
-        PurchHeader."Document Type" := PurchHeader."Document Type"::Order;
-        PurchHeader.Insert(true);
-        PurchHeader.Validate("Buy-from Vendor No.", VendorRec."No.");
-        PurchHeader.Modify(true);
-
-        // Preserve the selected-line filter.
+        // Validate all selected lines before creating the PO.
         SelectedLine.CopyFilters(IndentLine);
 
-        if not SelectedLine.FindSet(true) then
+        if not SelectedLine.FindSet() then
             Error('No indent lines were selected.');
 
         repeat
-            QtyToOrder := SelectedLine."Qty. to Order";
-
             if SelectedLine."Indent No." <> IndentNo then
                 Error('A selected line belongs to another indent.');
 
             if SelectedLine."No." = '' then
-                Error('Enter an item number on indent line %1.',
+                Error(
+                    'Enter an item number on line %1.',
                     SelectedLine."Line No.");
 
+            QtyToOrder := SelectedLine."Qty. to Order";
+
             if QtyToOrder <= 0 then
-                Error('Enter a positive Qty. to Order on line %1.',
+                Error(
+                    'Enter a positive Qty. to Order on line %1.',
                     SelectedLine."Line No.");
 
             if QtyToOrder >
@@ -67,20 +216,58 @@ codeunit 50253 "Indent to Purchase Order"
                     'Qty. to Order exceeds the remaining quantity on line %1.',
                     SelectedLine."Line No.");
 
+        until SelectedLine.Next() = 0;
+
+        // Create standard Business Central Purchase Order.
+        // PurchHeader.Init();
+        // PurchHeader."Document Type" :=
+        //     PurchHeader."Document Type"::Order;
+        // PurchHeader.Insert(true);
+
+        // PurchHeader.Validate(
+        //     "Buy-from Vendor No.", VendorRec."No.");
+        // PurchHeader.Modify(true);
+
+        PurchHeader.Init();
+        PurchHeader."Document Type" := PurchHeader."Document Type"::Order;
+        PurchHeader.Insert(true);
+
+        PurchHeader.Validate("Buy-from Vendor No.", VendorRec."No.");
+
+        // Link the Purchase Order to its originating Purchase Indent.
+        PurchHeader.Validate("Purchase Indent No.", IndentHeader."No.");
+
+        PurchHeader.Modify(true);
+
+
+        // Reapply the selected-line filters.
+        SelectedLine.Reset();
+        SelectedLine.CopyFilters(IndentLine);
+
+        if not SelectedLine.FindSet(true) then
+            Error('No indent lines were selected.');
+
+        repeat
+            QtyToOrder := SelectedLine."Qty. to Order";
             NextLineNo += 10000;
 
             PurchLine.Init();
-            PurchLine."Document Type" := PurchHeader."Document Type";
-            PurchLine."Document No." := PurchHeader."No.";
+            PurchLine."Document Type" :=
+                PurchHeader."Document Type";
+            PurchLine."Document No." :=
+                PurchHeader."No.";
             PurchLine."Line No." := NextLineNo;
             PurchLine.Insert(true);
 
-            PurchLine.Validate(Type, PurchLine.Type::Item);
-            PurchLine.Validate("No.", SelectedLine."No.");
+            PurchLine.Validate(
+                Type, PurchLine.Type::Item);
+            PurchLine.Validate(
+                "No.", SelectedLine."No.");
 
             if SelectedLine."Location Code" <> '' then
                 PurchLine.Validate(
-                    "Location Code", SelectedLine."Location Code");
+                    "Location Code",
+                    SelectedLine."Location Code");
 
             if SelectedLine."Unit of Measure Code" <> '' then
                 PurchLine.Validate(
@@ -96,13 +283,40 @@ codeunit 50253 "Indent to Purchase Order"
 
             PurchLine.Modify(true);
 
-            // Update only the selected indent line.
+            // Record the indent-to-PO relationship.
+            IndentHistory.Init();
+            IndentHistory."Indent No." :=
+                SelectedLine."Indent No.";
+            IndentHistory."Indent Line No." :=
+                SelectedLine."Line No.";
+            IndentHistory."Purchase Order No." :=
+                PurchHeader."No.";
+            IndentHistory."Purchase Order Line No." :=
+                PurchLine."Line No.";
+            IndentHistory."Vendor No." :=
+                PurchHeader."Buy-from Vendor No.";
+            IndentHistory."Vendor Name" :=
+                PurchHeader."Buy-from Vendor Name";
+            IndentHistory."Item No." :=
+                PurchLine."No.";
+            IndentHistory.Description :=
+                PurchLine.Description;
+            IndentHistory."Quantity Ordered" :=
+                QtyToOrder;
+            IndentHistory."Unit of Measure Code" :=
+                PurchLine."Unit of Measure Code";
+            IndentHistory."Order Date" :=
+                PurchHeader."Order Date";
+            IndentHistory.Insert(true);
+
+            // Update ordered quantities on the indent.
             SelectedLine.Validate(
                 "Quantity Ordered",
                 SelectedLine."Quantity Ordered" + QtyToOrder);
-
-            SelectedLine.Validate("Qty. to Order", 0);
-            SelectedLine."Purchase Order No." := PurchHeader."No.";
+            SelectedLine.Validate(
+                "Qty. to Order", 0);
+            SelectedLine."Purchase Order No." :=
+                PurchHeader."No.";
             SelectedLine.Modify(true);
 
         until SelectedLine.Next() = 0;
@@ -110,7 +324,7 @@ codeunit 50253 "Indent to Purchase Order"
         UpdateIndentStatus(IndentHeader);
 
         Message(
-            'Purchase Order %1 was created successfully for vendor %2.',
+            'Purchase Order %1 created for vendor %2.',
             PurchHeader."No.",
             VendorRec."No.");
 
@@ -124,7 +338,8 @@ codeunit 50253 "Indent to Purchase Order"
         HasOrdered: Boolean;
         HasRemaining: Boolean;
     begin
-        IndentLine.SetRange("Indent No.", IndentHeader."No.");
+        IndentLine.SetRange(
+            "Indent No.", IndentHeader."No.");
 
         if IndentLine.FindSet() then
             repeat
@@ -138,13 +353,15 @@ codeunit 50253 "Indent to Purchase Order"
             until IndentLine.Next() = 0;
 
         if not HasRemaining then
-            IndentHeader.Status := IndentHeader.Status::"Fully Ordered"
+            IndentHeader.Status :=
+                IndentHeader.Status::"Fully Ordered"
         else
             if HasOrdered then
                 IndentHeader.Status :=
                     IndentHeader.Status::"Partially Ordered"
             else
-                IndentHeader.Status := IndentHeader.Status::Open;
+                IndentHeader.Status :=
+                    IndentHeader.Status::Open;
 
         IndentHeader.Modify(true);
     end;

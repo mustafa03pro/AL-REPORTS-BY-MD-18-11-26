@@ -48,11 +48,46 @@ table 50251 "Purchase Indent Line"
             Caption = 'Unit of Measure';
             TableRelation = "Unit of Measure".Code;
         }
+
+        field(50252; "Existing Inventory"; Decimal)
+        {
+            Caption = 'Existing Inventory';
+            FieldClass = FlowField;
+            Editable = false;
+            DecimalPlaces = 0 : 5;
+
+            CalcFormula = sum("Item Ledger Entry".Quantity
+        where(
+            "Item No." = field("No."),
+            "Location Code" = field("Location Code")
+        ));
+        }
+
+        // field(8; "Quantity Requested"; Decimal)
+        // {
+        //     Caption = 'Quantity Requested';
+        //     DecimalPlaces = 0 : 5;
+        //     MinValue = 0;
+        // }
         field(8; "Quantity Requested"; Decimal)
         {
             Caption = 'Quantity Requested';
             DecimalPlaces = 0 : 5;
             MinValue = 0;
+
+            trigger OnValidate()
+            begin
+                if "Quantity Requested" < "Quantity Ordered" then
+                    Error(
+                        'Requested quantity cannot be less than the quantity already ordered.');
+
+                if "Qty. to Order" >
+                   "Quantity Requested" - "Quantity Ordered"
+                then
+                    Validate(
+                        "Qty. to Order",
+                        "Quantity Requested" - "Quantity Ordered");
+            end;
         }
         field(9; "Quantity Ordered"; Decimal)
         {
@@ -60,11 +95,30 @@ table 50251 "Purchase Indent Line"
             DecimalPlaces = 0 : 5;
             Editable = false;
         }
+        // field(10; "Qty. to Order"; Decimal)
+        // {
+        //     Caption = 'Qty. to Order';
+        //     DecimalPlaces = 0 : 5;
+        //     MinValue = 0;
+        // }
         field(10; "Qty. to Order"; Decimal)
         {
             Caption = 'Qty. to Order';
             DecimalPlaces = 0 : 5;
             MinValue = 0;
+
+            trigger OnValidate()
+            var
+                RemainingQty: Decimal;
+            begin
+                RemainingQty :=
+                    "Quantity Requested" - "Quantity Ordered";
+
+                if "Qty. to Order" > RemainingQty then
+                    Error(
+                        'Qty. to Order cannot exceed the remaining quantity of %1.',
+                        RemainingQty);
+            end;
         }
         field(11; "Required Date"; Date)
         {

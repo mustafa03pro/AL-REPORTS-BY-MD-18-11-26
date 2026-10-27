@@ -84,6 +84,15 @@ page 50252 "Purchase Indent Lines"
                 {
                     ApplicationArea = All;
                 }
+
+                field("Existing Inventory"; Rec."Existing Inventory")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Existing Inventory';
+                    Editable = false;
+                    ToolTip = 'Shows the current on-hand quantity at the selected location.';
+                }
+
                 field("Quantity Requested"; Rec."Quantity Requested")
                 {
                     ApplicationArea = All;

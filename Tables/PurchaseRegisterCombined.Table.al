@@ -16,6 +16,12 @@ table 50201 "Purchase Register Combined"
         field(10; Amount; Decimal) { }
         field(11; VATAmount; Decimal) { }
         field(12; TotalAmount; Decimal) { }
+        field(13; "Purchase Account"; Code[20])
+        {
+            Caption = 'Purchase Account';
+            DataClassification = CustomerContent;
+            TableRelation = "G/L Account";
+        }
     }
 
     keys
