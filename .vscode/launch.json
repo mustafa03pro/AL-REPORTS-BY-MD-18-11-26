@@ -6,7 +6,8 @@
             "request": "launch",
             "type": "al",
             "environmentType": "Sandbox",
-            "environmentName": "Metworld_Pre-Cutover",
+             "environmentName": "Metworld_Pre-Cutover",
+            //"environmentName": "Metworld-29-10-26-Production-B",
             "startupObjectId": 22,
             "startupObjectType": "Page",
             "breakOnError": "All",
@@ -15,4 +16,4 @@
             "enableSqlInformationDebugger": true
         }
     ]
-}
+}  

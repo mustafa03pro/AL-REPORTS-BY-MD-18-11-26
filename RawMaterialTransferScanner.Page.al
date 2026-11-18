@@ -1161,6 +1161,30 @@ page 50233 "Raw Material Transfer Scanner"
                 end;
             }
 
+            action(PreviewTransfer)
+            {
+                ApplicationArea = All;
+                Caption = 'Preview Transfer';
+                Image = View;
+                Promoted = true;
+                PromotedCategory = Process;
+                ToolTip = 'Review all scanned transfer items before creating the transfer.';
+
+                trigger OnAction()
+                var
+                    PreviewPage: Page "Transfer Scan Preview";
+                begin
+                    TempScanBuffer.Reset();
+
+                    if TempScanBuffer.IsEmpty() then
+                        Error('Scan at least one item before previewing the transfer.');
+
+                    PreviewPage.SetBuffer(TempScanBuffer);
+                    PreviewPage.RunModal();
+                end;
+            }
+
+
             action(ClearScannedItems)
             {
                 ApplicationArea = All;
